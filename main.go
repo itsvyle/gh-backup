@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/itsvyle/gh-backup/config"
 	"github.com/itsvyle/gh-backup/gh"
 	log "github.com/sirupsen/logrus"
 )
@@ -35,6 +36,12 @@ func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
+func printSeparator() {
+	log.Info("----------------------------------------------------------")
+	log.Info("")
+	log.Info("----------------------------------------------------------")
+}
+
 func main() {
 	// Get current user info
 	userInfo, _, err := gh.Exec("api", "user", "-q", ".login")
@@ -45,8 +52,13 @@ func main() {
 	log.WithField("username", username).Debug("got username")
 
 	repos, info := DownloadRepos()
-	log.Info("----------------------------------------------------------")
-	log.Info("")
-	log.Info("----------------------------------------------------------")
+
+	printSeparator()
+
 	UploadRepos(&repos, info)
+
+	if config.DeleteDataAfterUpload {
+		printSeparator()
+		PostUploadDeleteData()
+	}
 }
