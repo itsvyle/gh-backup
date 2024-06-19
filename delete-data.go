@@ -17,7 +17,7 @@ func PostUploadDeleteData() {
 	if err != nil {
 		log.WithError(err).Fatal("failed reading directory")
 	}
-
+	// TODO: make it concurrent
 	for _, file := range files {
 		if file.IsDir() {
 			p := filepath.Join(config.LocalStoragePath, file.Name())
