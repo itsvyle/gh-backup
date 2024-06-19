@@ -27,24 +27,28 @@ func LoadConfig() {
 
 	configPath := fmt.Sprintf("%s/%s", usr.HomeDir, configFileName)
 
-	// Check if the config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		createDefaultConfig(configPath)
 		return
 	}
 
-	// Read the config file contents
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		log.WithError(err).Fatal("failed to read config file")
 	}
 
-	// Unmarshal the YAML data into the Config struct
 	var cfg fileConfig
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		log.WithError(err).Fatal("failed to parse config file")
 	}
+
+	// Set the global variables to the values from the config file
+	BackupPrivateRepos = cfg.BackupPrivateRepos
+	BackupOtherOwnersRepos = cfg.BackupOtherOwnersRepos
+	ConcurrentRepoDownloads = cfg.ConcurrentRepoDownloads
+	LocalStoragePath = cfg.LocalStoragePath
+	ForceRedownload = cfg.ForceRedownload
 }
 
 func createDefaultConfig(path string) {
