@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 
@@ -89,6 +90,15 @@ func sanitizeRepoName(repoName string) string {
 }
 
 func DownloadRepo(repo Repo) error {
-	_, _, err := gh.Exec("repo", "clone", repo.Name, config.LocalStoragePath+"/"+sanitizeRepoName(repo.Name))
+	path := config.LocalStoragePath + "/" + sanitizeRepoName(repo.Name)
+	if !config.ForceRedownload {
+		// check if folder exists already
+		entries, err := os.ReadDir(path)
+		if err == nil && len(entries) > 0 {
+			log.WithField("repo", repo.Name).WithField("entries", entries).Debug("repo already exists, skipping")
+			return nil
+		}
+	}
+	_, _, err := gh.Exec("repo", "clone", repo.Name, path)
 	return err
 }

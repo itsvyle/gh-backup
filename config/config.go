@@ -6,10 +6,12 @@ import (
 )
 
 var (
-	BackupPrivateRepos      = true
-	BackupOtherOwnersRepos  = false
-	ConcurrentRepoDownloads = 5
-	LocalStoragePath        = "/tmp/ghbackup"
+	BackupPrivateRepos        = true
+	BackupOtherOwnersRepos    = false
+	ConcurrentRepoDownloads   = 5
+	LocalStoragePath          = "/tmp/ghbackup"
+	ForceRedownload           = false
+	BranchesToCheckForChanges = []string{"master", "main"}
 )
 
 func init() {
