@@ -38,7 +38,8 @@
 		"mnd": {
 			"ignored-numbers": [
 				"100",
-				"1000"
+				"1000",
+				"0644"
 			],
 			"ignored-functions": [
 				"time.Sleep"

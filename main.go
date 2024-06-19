@@ -165,7 +165,7 @@ func DownloadRepo(repo *Repo) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path+"/"+backupInfoFile, backupInfoBytes, 0644) //nolint:mnd
+	err = os.WriteFile(path+"/"+backupInfoFile, backupInfoBytes, 0644)
 	if err != nil {
 		return err
 	}

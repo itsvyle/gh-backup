@@ -17,9 +17,9 @@ var force = flag.Bool("force", false, "Force redownload of all repos")
 
 func init() {
 	flag.Parse()
+	LoadConfig()
 	ForceRedownload = *force
-}
 
-func InitConfig() {
+	// Potential processing of arguments:
 	LocalStoragePath = strings.TrimSuffix(LocalStoragePath, "/")
 }
