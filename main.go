@@ -24,6 +24,7 @@ type BackupInfo struct {
 	Archived    bool      `json:"archived"`
 	IsPrivate   bool      `json:"isPrivate"`
 }
+type ReposGeneralBackupInfos map[string]time.Time
 
 type Repo struct {
 	Name        string    `json:"nameWithOwner"`
@@ -72,7 +73,15 @@ func DownloadRepos() {
 
 	log.Debugf("Download repos %d at a time to %s", config.ConcurrentRepoDownloads, config.LocalStoragePath)
 
-	reposUpdated := make(map[string]time.Time)
+	reposUpdated := make(ReposGeneralBackupInfos)
+	// Find the general backup info file
+	previousBackupInfoBytes, err := os.ReadFile(config.LocalStoragePath + "/" + backupInfoFile)
+	if err == nil {
+		err = json.Unmarshal(previousBackupInfoBytes, &reposUpdated)
+		if err != nil {
+			log.WithError(err).Fatal("failed to unmarshal previous backup info")
+		}
+	}
 
 	// Download all repos
 	var wg sync.WaitGroup
@@ -87,7 +96,7 @@ func DownloadRepos() {
 				<-currentlyProcessing
 				wg.Done()
 			}()
-			err := DownloadRepo(&repo)
+			err := DownloadRepo(&repo, &reposUpdated)
 			if err != nil {
 				log.WithField("repo", repo.Name).WithError(err).Error("failed to download repo")
 			}
@@ -124,31 +133,14 @@ func FilterRepos(initialRepos []Repo) []Repo {
 	return repos
 }
 
-func DownloadRepo(repo *Repo) error {
+func DownloadRepo(repo *Repo, uploadedTimes *ReposGeneralBackupInfos) error {
 	path := config.LocalStoragePath + "/" + config.SanitizeRepoName(repo.Name)
 	folderExists := getFolderExists(path)
 	if !config.ForceRedownload && folderExists {
-		// check if folder exists already
-		entries, err := os.ReadDir(path)
-		if err == nil && len(entries) > 0 {
-			for _, entry := range entries {
-				if entry.Name() == backupInfoFile {
-					file, err := os.ReadFile(path + "/" + backupInfoFile)
-					if err != nil {
-						log.WithField("repo", repo.Name).WithError(err).Error("failed to read backup info file")
-						return err
-					}
-					var backupInfo BackupInfo
-					err = json.Unmarshal(file, &backupInfo)
-					if err != nil {
-						log.WithField("repo", repo.Name).WithError(err).Error("failed to unmarshal backup info")
-						return err
-					}
-					if backupInfo.BackedUpAt.After(repo.UpdatedAt) {
-						log.Infof("Repo %s hasn't been modified", repo.Name)
-						return nil
-					}
-				}
+		if t, ok := (*uploadedTimes)[config.SanitizeRepoName(repo.Name)]; ok {
+			if t.After(repo.UpdatedAt) {
+				log.Infof("Repo %s is up to date", repo.Name)
+				return nil
 			}
 		}
 	}
