@@ -33,6 +33,8 @@ type Repo struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 	Archived    bool      `json:"isArchived"`
 	Description string    `json:"description"`
+
+	Changed bool
 }
 
 var username string
@@ -160,6 +162,7 @@ func DownloadRepo(repo *Repo, uploadedTimes *ReposGeneralBackupInfos) error {
 	if err != nil {
 		return errors.New(stder.String())
 	}
+	repo.Changed = true
 
 	backupInfo := BackupInfo{
 		Name:        repo.Name,
