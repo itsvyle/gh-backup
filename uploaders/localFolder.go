@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/itsvyle/gh-backup/config"
@@ -76,12 +77,12 @@ func (u *UploaderLocalFolders) Connect() error {
 }
 
 func (u *UploaderLocalFolders) GetPreviousBackupTimes() (res map[string]time.Time, err error) {
-	_, err = os.Stat(u.FolderPath + "/gh_backup_info.json")
+	_, err = os.Stat(u.FolderPath + "/" + config.BackupInfoFile)
 	if err != nil {
 		return nil, err
 	}
 
-	file, err := os.ReadFile(u.FolderPath + "/gh_backup_info.json")
+	file, err := os.ReadFile(u.FolderPath + "/" + config.BackupInfoFile)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +93,38 @@ func (u *UploaderLocalFolders) GetPreviousBackupTimes() (res map[string]time.Tim
 	return res, nil
 }
 
-func (u *UploaderLocalFolders) Push(changedRepos []string) error {
+func (u *UploaderLocalFolders) Push(changedRepos []string) (err error) {
 
+	wg := sync.WaitGroup{}
+	wg.Add(len(changedRepos))
+	runningCopies := make(chan struct{}, config.ConcurrentRepoDownloads)
+
+	for _, repo := range changedRepos {
+		runningCopies <- struct{}{}
+		go func(r string) {
+			defer func() {
+				<-runningCopies
+				wg.Done()
+			}()
+			err = u.pushRepo(r)
+			if err != nil {
+
+			}
+		}(repo)
+	}
+	return nil
+}
+
+func (u *UploaderLocalFolders) pushRepo(repo string) error {
+	path := config.LocalStoragePath + "/" + config.SanitizeRepoName(repo)
+	_, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("'%s' failed to check repo path: %w", repo, err)
+	}
+
+	err = os.Rename(path, u.FolderPath+"/"+config.SanitizeRepoName(repo))
+	if err != nil {
+		return fmt.Errorf("'%s' failed to copy repo: %w", repo, err)
+	}
+	return nil
 }
