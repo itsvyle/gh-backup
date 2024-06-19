@@ -1,6 +1,9 @@
 package config
 
-import "flag"
+import (
+	"flag"
+	"strings"
+)
 
 var (
 	BackupPrivateRepos      = true
@@ -11,4 +14,8 @@ var (
 
 func init() {
 	flag.Parse()
+}
+
+func InitConfig() {
+	LocalStoragePath = strings.TrimSuffix(LocalStoragePath, "/")
 }
