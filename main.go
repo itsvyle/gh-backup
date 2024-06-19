@@ -17,7 +17,12 @@ import (
 const backupInfoFile = "gh_backup_info.json"
 
 type BackupInfo struct {
-	BackedUpAt time.Time `json:"backedUpAt"`
+	Name        string    `json:"name"`
+	NameNoOwner string    `json:"nameNoOwner"`
+	BackedUpAt  time.Time `json:"backedUpAt"`
+	Description string    `json:"description"`
+	Archived    bool      `json:"archived"`
+	IsPrivate   bool      `json:"isPrivate"`
 }
 
 type Repo struct {
@@ -25,6 +30,8 @@ type Repo struct {
 	NameNoOwner string    `json:"name"`
 	IsPrivate   bool      `json:"isPrivate"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+	Archived    bool      `json:"isArchived"`
+	Description string    `json:"description"`
 }
 
 var username string
@@ -43,7 +50,7 @@ func main() {
 	log.WithField("username", username).Debug("got username")
 
 	// List repos
-	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner", "updatedAt"}
+	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner", "updatedAt", "isArchived", "description"}
 	reposList, _, err := gh.Exec("repo", "list", "--limit", "500", "--json", strings.Join(reposFields, ","))
 	if err != nil {
 		log.WithError(err).Fatal("failed to list repos")
@@ -74,7 +81,7 @@ func main() {
 				wg.Done()
 			}()
 			log.Infof("(%d/%d) Downloading repo %s", i, len(repos), repo.Name)
-			err := DownloadRepo(repo)
+			err := DownloadRepo(&repo)
 			if err != nil {
 				log.WithField("repo", repo.Name).WithError(err).Error("failed to download repo")
 			}
@@ -101,7 +108,7 @@ func sanitizeRepoName(repoName string) string {
 	return strings.Replace(repoName, "/", "_", -1)
 }
 
-func DownloadRepo(repo Repo) error {
+func DownloadRepo(repo *Repo) error {
 	path := config.LocalStoragePath + "/" + sanitizeRepoName(repo.Name)
 	folderExists := getFolderExists(path)
 	if !config.ForceRedownload && folderExists {
@@ -134,17 +141,25 @@ func DownloadRepo(repo Repo) error {
 	var stder bytes.Buffer
 
 	if folderExists {
-		_, stder, err = gh.Exec("repo", "sync", path)
-	} else {
-		_, stder, err = gh.Exec("repo", "clone", repo.Name, path)
+		err = os.RemoveAll(path)
+		if err != nil {
+			return err
+		}
 	}
+
+	_, stder, err = gh.Exec("repo", "clone", repo.Name, path)
 
 	if err != nil {
 		return errors.New(stder.String())
 	}
 
 	backupInfo := BackupInfo{
-		BackedUpAt: time.Now(),
+		Name:        repo.Name,
+		NameNoOwner: repo.NameNoOwner,
+		BackedUpAt:  time.Now(),
+		Description: repo.Description,
+		Archived:    repo.Archived,
+		IsPrivate:   repo.IsPrivate,
 	}
 	backupInfoBytes, err := json.Marshal(backupInfo)
 	if err != nil {
