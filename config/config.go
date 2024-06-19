@@ -23,3 +23,7 @@ func init() {
 	// Potential processing of arguments:
 	LocalStoragePath = strings.TrimSuffix(LocalStoragePath, "/")
 }
+
+func SanitizeRepoName(repoName string) string {
+	return strings.Replace(repoName, "/", "_", -1)
+}

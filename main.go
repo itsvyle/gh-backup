@@ -91,7 +91,7 @@ func DownloadRepos() {
 			if err != nil {
 				log.WithField("repo", repo.Name).WithError(err).Error("failed to download repo")
 			}
-			reposUpdated[sanitizeRepoName(repo.Name)] = time.Now()
+			reposUpdated[config.SanitizeRepoName(repo.Name)] = time.Now()
 		}(repo)
 	}
 	wg.Wait()
@@ -124,12 +124,8 @@ func FilterRepos(initialRepos []Repo) []Repo {
 	return repos
 }
 
-func sanitizeRepoName(repoName string) string {
-	return strings.Replace(repoName, "/", "_", -1)
-}
-
 func DownloadRepo(repo *Repo) error {
-	path := config.LocalStoragePath + "/" + sanitizeRepoName(repo.Name)
+	path := config.LocalStoragePath + "/" + config.SanitizeRepoName(repo.Name)
 	folderExists := getFolderExists(path)
 	if !config.ForceRedownload && folderExists {
 		// check if folder exists already
