@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/daemon/graphdriver/copy"
 	"github.com/itsvyle/gh-backup/config"
 	log "github.com/sirupsen/logrus"
 )
@@ -97,7 +98,7 @@ func (u *UploaderLocalFolders) GetPreviousBackupTimes() (res map[string]time.Tim
 	return res, nil
 }
 
-func (u *UploaderLocalFolders) Push(changedRepos []string) (err error) {
+func (u *UploaderLocalFolders) Push(changedRepos []string, infoFile map[string]time.Time) (err error) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(changedRepos))
@@ -119,6 +120,16 @@ func (u *UploaderLocalFolders) Push(changedRepos []string) (err error) {
 
 	wg.Wait()
 
+	// Save last updated time for all repos in a file
+	reposUpdatedBytes, err := json.Marshal(infoFile)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated repos: %w", err)
+	}
+	err = os.WriteFile(u.FolderPath+"/"+config.BackupInfoFile, reposUpdatedBytes, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write updated repos to file: %w", err)
+	}
+
 	return
 }
 
@@ -128,8 +139,14 @@ func (u *UploaderLocalFolders) pushRepo(repo string) error {
 	if err != nil {
 		return fmt.Errorf("'%s' failed to check repo path: %w", repo, err)
 	}
+	newPath := u.FolderPath + "/" + config.SanitizeRepoName(repo)
 
-	err = os.Rename(path, u.FolderPath+"/"+config.SanitizeRepoName(repo))
+	err = os.RemoveAll(newPath)
+	if err != nil {
+		return fmt.Errorf("'%s' failed to remove old repo: %w", repo, err)
+	}
+
+	err = copy.DirCopy(path, newPath, copy.Content, false)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to copy repo: %w", repo, err)
 	}

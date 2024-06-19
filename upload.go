@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func UploadRepos(repos *[]Repo) {
+func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 	log.Infof("Found %d backup methods", len(config.BackupMethods))
 	if len(config.BackupMethods) == 0 {
 		log.Fatal("No backup methods configured. Please add them to ~/" + config.ConfigFileName)
@@ -67,11 +67,13 @@ func UploadRepos(repos *[]Repo) {
 				}
 			}
 
-			err = method.Push(changedReposNames)
+			err = method.Push(changedReposNames, backupInfoFile)
 			if err != nil {
 				log.WithField("type", method.Type()).WithField("name", method.Name()).WithError(err).Error("failed to upload")
 				hadError = err
+				return
 			}
+			log.WithField("type", method.Type()).WithField("name", method.Name()).Info("uploaded")
 		}(method)
 	}
 

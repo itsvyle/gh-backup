@@ -44,9 +44,9 @@ func main() {
 	username = strings.TrimSpace(userInfo.String())
 	log.WithField("username", username).Debug("got username")
 
-	repos := DownloadRepos()
+	repos, info := DownloadRepos()
 	log.Info("----------------------------------------------------------")
 	log.Info("")
 	log.Info("----------------------------------------------------------")
-	UploadRepos(&repos)
+	UploadRepos(&repos, info)
 }

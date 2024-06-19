@@ -13,5 +13,5 @@ type Uploader interface {
 	// Basically returns the top level gh_backup_info.json file
 	GetPreviousBackupTimes() (map[string]time.Time, error)
 	// Push the backup to the remote service
-	Push(changedRepos []string) error
+	Push(changedRepos []string, infoFile map[string]time.Time) error
 }

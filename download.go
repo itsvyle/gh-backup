@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func DownloadRepos() []Repo {
+func DownloadRepos() ([]Repo, ReposGeneralBackupInfos) {
 	// List repos
 	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner", "updatedAt", "isArchived", "description"}
 	reposList, _, err := gh.Exec("repo", "list", "--limit", "500", "--json", strings.Join(reposFields, ","))
@@ -56,11 +56,17 @@ func DownloadRepos() []Repo {
 			err := DownloadRepo(&repo, &reposUpdated)
 			if err != nil {
 				log.WithField("repo", repo.Name).WithError(err).Error("failed to download repo")
+				return
 			}
-			reposUpdated[config.SanitizeRepoName(repo.Name)] = time.Now()
 		}(repo)
 	}
 	wg.Wait()
+
+	for _, repo := range repos {
+		if repo.Changed {
+			reposUpdated[config.SanitizeRepoName(repo.Name)] = time.Now()
+		}
+	}
 
 	log.Info("Finished downloading all repos")
 
@@ -74,7 +80,7 @@ func DownloadRepos() []Repo {
 		log.WithError(err).Fatal("failed to write updated repos to file")
 	}
 
-	return repos
+	return repos, reposUpdated
 }
 
 func FilterRepos(initialRepos []Repo) []Repo {
