@@ -9,7 +9,7 @@ import (
 )
 
 func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
-	log.Infof("Found %d backup methods", len(config.BackupMethods))
+	log.Infof("Found %d upload backup methods ", len(config.BackupMethods))
 	if len(config.BackupMethods) == 0 {
 		log.Fatal("No backup methods configured. Please add them to ~/" + config.ConfigFileName)
 	}

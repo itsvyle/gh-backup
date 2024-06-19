@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"strings"
 )
 
@@ -34,4 +35,24 @@ func init() {
 
 func SanitizeRepoName(repoName string) string {
 	return strings.Replace(repoName, "/", "_", -1)
+}
+
+func GetYesNoInput(question string) bool {
+	if NonInteractive {
+		return true
+	}
+	var response string
+	for {
+		fmt.Print(question + " (y/n): ")
+		_, err := fmt.Scanf("%s", &response)
+		if err != nil && err.Error() != "unexpected newline" {
+			continue
+		}
+		if response == "n" || response == "N" {
+			return false
+		}
+		if response == "y" || response == "Y" || response == "" {
+			return true
+		}
+	}
 }

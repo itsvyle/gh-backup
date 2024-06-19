@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -53,9 +54,12 @@ func main() {
 
 	repos, info := DownloadRepos()
 
-	printSeparator()
+	fmt.Print("")
 
-	UploadRepos(&repos, info)
+	if config.GetYesNoInput("Do you want to upload the data?") {
+		printSeparator()
+		UploadRepos(&repos, info)
+	}
 
 	if config.DeleteDataAfterUpload {
 		printSeparator()
