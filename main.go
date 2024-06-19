@@ -5,16 +5,24 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cli/go-gh/v2"
 	"github.com/itsvyle/gh-backup/config"
 	log "github.com/sirupsen/logrus"
 )
 
+const backupInfoFile = "gh_backup_info.json"
+
+type BackupInfo struct {
+	BackedUpAt time.Time `json:"backedUpAt"`
+}
+
 type Repo struct {
-	Name        string `json:"nameWithOwner"`
-	NameNoOwner string `json:"name"`
-	IsPrivate   bool   `json:"isPrivate"`
+	Name        string    `json:"nameWithOwner"`
+	NameNoOwner string    `json:"name"`
+	IsPrivate   bool      `json:"isPrivate"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 var username string
@@ -33,7 +41,7 @@ func main() {
 	log.WithField("username", username).Debug("got username")
 
 	// List repos
-	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner"}
+	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner", "updatedAt"}
 	reposList, _, err := gh.Exec("repo", "list", "--limit", "500", "--json", strings.Join(reposFields, ","))
 	if err != nil {
 		log.WithError(err).Fatal("failed to list repos")
@@ -64,7 +72,7 @@ func main() {
 			log.Info("Downloading repo: ", repo.Name)
 			err := DownloadRepo(repo)
 			if err != nil {
-				log.WithError(err).Error("failed to download repo")
+				log.WithField("repo", repo.Name).WithError(err).Error("failed to download repo")
 			}
 		}(repo)
 	}
@@ -95,10 +103,40 @@ func DownloadRepo(repo Repo) error {
 		// check if folder exists already
 		entries, err := os.ReadDir(path)
 		if err == nil && len(entries) > 0 {
-			log.WithField("repo", repo.Name).WithField("entries", entries).Debug("repo already exists, skipping")
+			for _, entry := range entries {
+				if entry.Name() == backupInfoFile {
+					file, err := os.ReadFile(path + "/" + backupInfoFile)
+					if err != nil {
+						log.WithField("repo", repo.Name).WithError(err).Error("failed to read backup info file")
+						return err
+					}
+					var backupInfo BackupInfo
+					err = json.Unmarshal(file, &backupInfo)
+					if err != nil {
+						log.WithField("repo", repo.Name).WithError(err).Error("failed to unmarshal backup info")
+						return err
+					}
+					if backupInfo.BackedUpAt.After(repo.UpdatedAt) {
+						log.WithField("repo", repo.Name).Debug("repo is up to date, skipping")
+						return nil
+					}
+				}
+			}
 			return nil
 		}
 	}
 	_, _, err := gh.Exec("repo", "clone", repo.Name, path)
+	if err != nil {
+		return err
+	}
+	backupInfo := BackupInfo{
+		BackedUpAt: time.Now(),
+	}
+	backupInfoBytes, err := json.Marshal(backupInfo)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(path+"/"+backupInfoFile, backupInfoBytes, 0644)
+
 	return err
 }
