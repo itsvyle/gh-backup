@@ -1,14 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/cli/go-gh/v2"
 	"github.com/itsvyle/gh-backup/config"
+	"github.com/itsvyle/gh-backup/gh"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -101,7 +103,8 @@ func sanitizeRepoName(repoName string) string {
 
 func DownloadRepo(repo Repo) error {
 	path := config.LocalStoragePath + "/" + sanitizeRepoName(repo.Name)
-	if !config.ForceRedownload {
+	folderExists := getFolderExists(path)
+	if !config.ForceRedownload && folderExists {
 		// check if folder exists already
 		entries, err := os.ReadDir(path)
 		if err == nil && len(entries) > 0 {
@@ -126,10 +129,20 @@ func DownloadRepo(repo Repo) error {
 			}
 		}
 	}
-	_, _, err := gh.Exec("repo", "clone", repo.Name, path)
-	if err != nil {
-		return err
+
+	var err error
+	var stder bytes.Buffer
+
+	if folderExists {
+		_, stder, err = gh.Exec("repo", "sync", path)
+	} else {
+		_, stder, err = gh.Exec("repo", "clone", repo.Name, path)
 	}
+
+	if err != nil {
+		return errors.New(stder.String())
+	}
+
 	backupInfo := BackupInfo{
 		BackedUpAt: time.Now(),
 	}
@@ -143,4 +156,9 @@ func DownloadRepo(repo Repo) error {
 	}
 
 	return err
+}
+
+func getFolderExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
