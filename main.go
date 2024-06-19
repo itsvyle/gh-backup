@@ -49,6 +49,11 @@ func main() {
 	username = strings.TrimSpace(userInfo.String())
 	log.WithField("username", username).Debug("got username")
 
+	DownloadRepos()
+
+}
+
+func DownloadRepos() {
 	// List repos
 	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner", "updatedAt", "isArchived", "description"}
 	reposList, _, err := gh.Exec("repo", "list", "--limit", "500", "--json", strings.Join(reposFields, ","))
@@ -67,6 +72,8 @@ func main() {
 
 	log.Debugf("Download repos %d at a time to %s", config.ConcurrentRepoDownloads, config.LocalStoragePath)
 
+	reposUpdated := make(map[string]time.Time)
+
 	// Download all repos
 	var wg sync.WaitGroup
 	wg.Add(len(repos))
@@ -75,19 +82,32 @@ func main() {
 	for _, repo := range repos {
 		currentlyProcessing <- struct{}{}
 		i++
-		go func(repo Repo, i int) {
+		go func(repo Repo) {
 			defer func() {
 				<-currentlyProcessing
 				wg.Done()
 			}()
-			log.Infof("(%d/%d) Downloading repo %s", i, len(repos), repo.Name)
 			err := DownloadRepo(&repo)
 			if err != nil {
 				log.WithField("repo", repo.Name).WithError(err).Error("failed to download repo")
 			}
-		}(repo, i)
+			reposUpdated[sanitizeRepoName(repo.Name)] = time.Now()
+		}(repo)
 	}
 	wg.Wait()
+
+	log.Info("Finished downloading all repos")
+
+	// Save last updated time for all repos in a file
+	reposUpdatedBytes, err := json.Marshal(reposUpdated)
+	if err != nil {
+		log.WithError(err).Fatal("failed to marshal updated repos")
+		return
+	}
+	err = os.WriteFile(config.LocalStoragePath+"/"+backupInfoFile, reposUpdatedBytes, 0644)
+	if err != nil {
+		log.WithError(err).Fatal("failed to write updated repos to file")
+	}
 }
 
 func FilterRepos(initialRepos []Repo) []Repo {
@@ -129,7 +149,7 @@ func DownloadRepo(repo *Repo) error {
 						return err
 					}
 					if backupInfo.BackedUpAt.After(repo.UpdatedAt) {
-						log.WithField("repo", repo.Name).Debug("repo is up to date, skipping")
+						log.Infof("Repo %s hasn't been modified", repo.Name)
 						return nil
 					}
 				}
@@ -146,7 +166,7 @@ func DownloadRepo(repo *Repo) error {
 			return err
 		}
 	}
-
+	log.Infof("Downloading repo %s", repo.Name)
 	_, stder, err = gh.Exec("repo", "clone", repo.Name, path)
 
 	if err != nil {
