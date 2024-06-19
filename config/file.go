@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const configFileName = ".ghbackup.yaml"
+const ConfigFileName = ".ghbackup.yaml"
 
 type BackupMethod struct {
 	Name          string            `yaml:"name"`
@@ -21,12 +21,13 @@ type BackupMethod struct {
 }
 
 type fileConfig struct {
-	BackupPrivateRepos      bool           `yaml:"backupPrivateRepos"`
-	BackupOtherOwnersRepos  bool           `yaml:"backupOtherOwnersRepos"`
-	ConcurrentRepoDownloads int            `yaml:"concurrentRepoDownloads"`
-	LocalStoragePath        string         `yaml:"localStoragePath"`
-	ForceRedownload         bool           `yaml:"forceRedownload"`
-	BackupMethods           []BackupMethod `yaml:"backupMethods"`
+	BackupPrivateRepos        bool           `yaml:"backupPrivateRepos"`
+	BackupOtherOwnersRepos    bool           `yaml:"backupOtherOwnersRepos"`
+	ConcurrentRepoDownloads   int            `yaml:"concurrentRepoDownloads"`
+	ConcurrentBackupUploaders int            `yaml:"concurrentBackupUploaders"`
+	LocalStoragePath          string         `yaml:"localStoragePath"`
+	ForceRedownload           bool           `yaml:"forceRedownload"`
+	BackupMethods             []BackupMethod `yaml:"backupMethods"`
 }
 
 func LoadConfig() {
@@ -35,7 +36,7 @@ func LoadConfig() {
 		log.WithError(err).Fatal("failed to get current user")
 	}
 
-	configPath := fmt.Sprintf("%s/%s", usr.HomeDir, configFileName)
+	configPath := fmt.Sprintf("%s/%s", usr.HomeDir, ConfigFileName)
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		createDefaultConfig(configPath)
@@ -57,8 +58,10 @@ func LoadConfig() {
 	BackupPrivateRepos = cfg.BackupPrivateRepos
 	BackupOtherOwnersRepos = cfg.BackupOtherOwnersRepos
 	ConcurrentRepoDownloads = cfg.ConcurrentRepoDownloads
+	ConcurrentBackupUploaders = cfg.ConcurrentBackupUploaders
 	LocalStoragePath = cfg.LocalStoragePath
 	ForceRedownload = cfg.ForceRedownload
+	BackupMethods = cfg.BackupMethods
 }
 
 func createDefaultConfig(path string) {

@@ -2,6 +2,7 @@ package uploaders
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -57,7 +58,7 @@ func (u *UploaderLocalFolders) Connect() error {
 		if err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
-		fmt.Println("Directory created successfully:", path)
+		log.WithField("type", u.Type()).WithField("name", u.Name()).Debugf("Directory created successfully %s", path)
 	} else if err != nil {
 		return fmt.Errorf("failed to check path: %w", err)
 	}
@@ -68,10 +69,10 @@ func (u *UploaderLocalFolders) Connect() error {
 		return fmt.Errorf("failed to check path: %w", err)
 	}
 	if !stat.IsDir() {
-		return fmt.Errorf("path is not a directory")
+		return errors.New("path is not a directory")
 	}
 	if stat.Mode().Perm()&0200 == 0 {
-		return fmt.Errorf("no write permissions on directory")
+		return errors.New("no write permissions on directory")
 	}
 	return nil
 }
@@ -79,6 +80,9 @@ func (u *UploaderLocalFolders) Connect() error {
 func (u *UploaderLocalFolders) GetPreviousBackupTimes() (res map[string]time.Time, err error) {
 	_, err = os.Stat(u.FolderPath + "/" + config.BackupInfoFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]time.Time{}, nil
+		}
 		return nil, err
 	}
 
@@ -108,11 +112,14 @@ func (u *UploaderLocalFolders) Push(changedRepos []string) (err error) {
 			}()
 			err = u.pushRepo(r)
 			if err != nil {
-
+				log.WithField("repo", r).WithError(err).Error("failed to copy repo")
 			}
 		}(repo)
 	}
-	return nil
+
+	wg.Wait()
+
+	return
 }
 
 func (u *UploaderLocalFolders) pushRepo(repo string) error {

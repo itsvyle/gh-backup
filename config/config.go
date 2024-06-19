@@ -8,13 +8,15 @@ import (
 const BackupInfoFile = "gh_backup_info.json"
 
 var (
-	NonInteractive          = false
-	BackupPrivateRepos      = true
-	BackupOtherOwnersRepos  = false
-	ConcurrentRepoDownloads = 5
-	LocalStoragePath        = "/tmp/ghbackup"
-	ForceRedownload         = false
-	DeleteDataAfterUpload   = true
+	NonInteractive            = false
+	BackupPrivateRepos        = true
+	BackupOtherOwnersRepos    = false
+	ConcurrentRepoDownloads   = 5
+	ConcurrentBackupUploaders = 2
+	LocalStoragePath          = "/tmp/ghbackup"
+	ForceRedownload           = false
+	DeleteDataAfterUpload     = true
+	BackupMethods             []BackupMethod
 )
 
 var force = flag.Bool("force", false, "Force redownload of all repos")

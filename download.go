@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func DownloadRepos() {
+func DownloadRepos() []Repo {
 	// List repos
 	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner", "updatedAt", "isArchived", "description"}
 	reposList, _, err := gh.Exec("repo", "list", "--limit", "500", "--json", strings.Join(reposFields, ","))
@@ -24,8 +24,7 @@ func DownloadRepos() {
 	var repos []Repo
 	err = json.Unmarshal(reposList.Bytes(), &repos)
 	if err != nil {
-		log.WithError(err).Error("failed to unmarshal repos")
-		return
+		log.WithError(err).Fatal("failed to unmarshal repos")
 	}
 	log.Infof("Found %d repos", len(repos))
 	repos = FilterRepos(repos)
@@ -69,12 +68,13 @@ func DownloadRepos() {
 	reposUpdatedBytes, err := json.Marshal(reposUpdated)
 	if err != nil {
 		log.WithError(err).Fatal("failed to marshal updated repos")
-		return
 	}
 	err = os.WriteFile(config.LocalStoragePath+"/"+config.BackupInfoFile, reposUpdatedBytes, 0644)
 	if err != nil {
 		log.WithError(err).Fatal("failed to write updated repos to file")
 	}
+
+	return repos
 }
 
 func FilterRepos(initialRepos []Repo) []Repo {
