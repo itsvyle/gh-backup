@@ -15,7 +15,16 @@ type Repo struct {
 }
 
 func main() {
-	reposFields := []string{"name", "nameWithOwner", "isPrivate"}
+	// Get current user info
+	userInfo, _, err := gh.Exec("api", "user", "-q", ".login")
+	if err != nil {
+		log.WithError(err).Fatal("failed to get user info")
+	}
+	username := strings.TrimSpace(userInfo.String())
+	log.WithField("username", username).Info("got username")
+
+	// List repos
+	reposFields := []string{"name", "nameWithOwner", "isPrivate", "owner"}
 	reposList, _, err := gh.Exec("repo", "list", "--json", strings.Join(reposFields, ","))
 	if err != nil {
 		log.WithError(err).Fatal("failed to list repos")
