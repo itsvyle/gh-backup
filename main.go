@@ -8,8 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const backupInfoFile = "gh_backup_info.json"
-
 type BackupInfo struct {
 	Name        string    `json:"name"`
 	NameNoOwner string    `json:"nameNoOwner"`

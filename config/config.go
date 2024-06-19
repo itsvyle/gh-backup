@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+const BackupInfoFile = "gh_backup_info.json"
+
 var (
 	NonInteractive          = false
 	BackupPrivateRepos      = true

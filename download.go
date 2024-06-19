@@ -35,7 +35,7 @@ func DownloadRepos() {
 
 	reposUpdated := make(ReposGeneralBackupInfos)
 	// Find the general backup info file
-	previousBackupInfoBytes, err := os.ReadFile(config.LocalStoragePath + "/" + backupInfoFile)
+	previousBackupInfoBytes, err := os.ReadFile(config.LocalStoragePath + "/" + config.BackupInfoFile)
 	if err == nil {
 		err = json.Unmarshal(previousBackupInfoBytes, &reposUpdated)
 		if err != nil {
@@ -71,7 +71,7 @@ func DownloadRepos() {
 		log.WithError(err).Fatal("failed to marshal updated repos")
 		return
 	}
-	err = os.WriteFile(config.LocalStoragePath+"/"+backupInfoFile, reposUpdatedBytes, 0644)
+	err = os.WriteFile(config.LocalStoragePath+"/"+config.BackupInfoFile, reposUpdatedBytes, 0644)
 	if err != nil {
 		log.WithError(err).Fatal("failed to write updated repos to file")
 	}
@@ -132,7 +132,7 @@ func DownloadRepo(repo *Repo, uploadedTimes *ReposGeneralBackupInfos) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path+"/"+backupInfoFile, backupInfoBytes, 0644)
+	err = os.WriteFile(path+"/"+config.BackupInfoFile, backupInfoBytes, 0644)
 	if err != nil {
 		return err
 	}
@@ -141,6 +141,6 @@ func DownloadRepo(repo *Repo, uploadedTimes *ReposGeneralBackupInfos) error {
 }
 
 func getFolderExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	s, err := os.Stat(path)
+	return err == nil && s.IsDir()
 }
