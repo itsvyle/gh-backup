@@ -62,19 +62,21 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(len(repos))
 	currentlyProcessing := make(chan struct{}, config.ConcurrentRepoDownloads)
+	i := 0
 	for _, repo := range repos {
 		currentlyProcessing <- struct{}{}
-		go func(repo Repo) {
+		i++
+		go func(repo Repo, i int) {
 			defer func() {
 				<-currentlyProcessing
 				wg.Done()
 			}()
-			log.Info("Downloading repo: ", repo.Name)
+			log.Infof("(%d/%d) Downloading repo %s", i, len(repos), repo.Name)
 			err := DownloadRepo(repo)
 			if err != nil {
 				log.WithField("repo", repo.Name).WithError(err).Error("failed to download repo")
 			}
-		}(repo)
+		}(repo, i)
 	}
 	wg.Wait()
 }
@@ -122,7 +124,6 @@ func DownloadRepo(repo Repo) error {
 					}
 				}
 			}
-			return nil
 		}
 	}
 	_, _, err := gh.Exec("repo", "clone", repo.Name, path)
@@ -136,7 +137,10 @@ func DownloadRepo(repo Repo) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path+"/"+backupInfoFile, backupInfoBytes, 0644)
+	err = os.WriteFile(path+"/"+backupInfoFile, backupInfoBytes, 0644) //nolint:mnd
+	if err != nil {
+		return err
+	}
 
 	return err
 }
