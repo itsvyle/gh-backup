@@ -3,6 +3,7 @@ package uploaders
 // Following this: https://developers.google.com/identity/gsi/web/guides/devices
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -34,13 +35,13 @@ func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive 
 		settings.Parameters = make(map[string]string)
 	}
 	if settings.Parameters["clientID"] == "" {
-		log.WithField("name", settings.Name).Error("clientID param not set")
+		log.WithField("name", settings.Name).Error("clientID param not set; please add it to the config file after following instructions on https://developers.google.com/identity/gsi/web/guides/devices")
 		u.enabled = false
 	} else {
 		u.clientID = settings.Parameters["clientID"]
 	}
 	if settings.Parameters["clientSecret"] == "" {
-		log.WithField("name", settings.Name).Error("clientSecret param not set")
+		log.WithField("name", settings.Name).Error("clientSecret param not set; please add it to the config file after following instructions on https://developers.google.com/identity/gsi/web/guides/devices.")
 		u.enabled = false
 	} else {
 		u.clientSecret = settings.Parameters["clientSecret"]
@@ -72,13 +73,25 @@ func (u *UploaderGoogleDrive) Connect() error {
 	if exists {
 		log.WithField("name", u.name).Infof("credentials file exists at %s", credentialsFile)
 	} else {
-		u.authenticate()
+		err := u.authenticate()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
+type GoogleDriveDeviceCodeResponse struct {
+	DeviceCode      string `json:"device_code"`
+	UserCode        string `json:"user_code"`
+	VerificationURL string `json:"verification_url"`
+	ExpiresIn       int    `json:"expires_in"`
+	Interval        int    `json:"interval"`
+}
+
 func (u *UploaderGoogleDrive) authenticate() error {
+	log.Info("Authenticating with Google Drive, as the credentials file was not found.")
 	requestBody := fmt.Sprintf("client_id=%s&scope=%s", url.QueryEscape(u.clientID), url.QueryEscape("email https://www.googleapis.com/auth/drive.file"))
 
 	req, err := http.NewRequest(http.MethodPost, "https://oauth2.googleapis.com/device/code", bytes.NewBufferString(requestBody))
@@ -102,9 +115,20 @@ func (u *UploaderGoogleDrive) authenticate() error {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Print the response status code and body
-	fmt.Println("Status Code:", resp.StatusCode)
-	fmt.Println("Response Body:", string(body))
+	if resp.StatusCode != http.StatusOK {
+		log.WithField("name", u.name).WithField("status", resp.StatusCode).WithField("body", string(body)).Error("failed to authenticate")
+		return fmt.Errorf("failed to authenticate: %d", resp.StatusCode)
+	}
+
+	var deviceCodeResponse GoogleDriveDeviceCodeResponse
+	err = json.Unmarshal(body, &deviceCodeResponse)
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to unmarshal response")
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	log.Infof("Please visit %s and enter the code: %s", deviceCodeResponse.VerificationURL, deviceCodeResponse.UserCode)
+
 	return nil
 }
 
