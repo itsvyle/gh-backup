@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"strings"
 	"sync"
 	"time"
@@ -34,9 +35,22 @@ func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive 
 		log.Fatal("Name not set for Google Drive uploader")
 	}
 	u := &UploaderGoogleDrive{
-		name:            settings.Name,
-		enabled:         settings.Enabled,
-		credentialsFile: "/etc/gh-backup/credential_" + sanitizeName(settings.Name) + ".json",
+		name:    settings.Name,
+		enabled: settings.Enabled,
+	}
+
+	{
+		usr, err := user.Current()
+		if err != nil {
+			log.WithError(err).Fatal("failed to get current user")
+		}
+
+		u.credentialsFile = fmt.Sprintf("%s/.ghbackup/credentials_%s.json", usr.HomeDir, sanitizeName(settings.Name))
+
+		err = os.MkdirAll(fmt.Sprintf("%s/.ghbackup", usr.HomeDir), os.ModePerm)
+		if err != nil {
+			log.WithError(err).Fatal("failed to create directory")
+		}
 	}
 
 	if settings.Parameters == nil {
