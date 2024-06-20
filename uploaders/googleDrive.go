@@ -173,7 +173,7 @@ func (u *UploaderGoogleDrive) authenticate() error {
 		return fmt.Errorf("failed to save token to file: %w", err)
 	}
 
-	email, err := u.getEmailFromIdToken(idToken.IDToken)
+	email, err := u.getEmailFromIDToken(idToken.IDToken)
 	if err != nil {
 		log.WithField("name", u.name).WithError(err).Error("failed to get email from token")
 		return fmt.Errorf("failed to get email from token: %w", err)
@@ -249,9 +249,9 @@ type GoogleIDToken struct {
 	Email string `json:"email"`
 }
 
-func (u *UploaderGoogleDrive) getEmailFromIdToken(idToken string) (email string, err error) {
+func (u *UploaderGoogleDrive) getEmailFromIDToken(idToken string) (email string, err error) {
 	parts := strings.Split(idToken, ".")
-	if len(parts) != 3 {
+	if len(parts) != 3 { //nolint:mnd
 		return "", errors.New("invalid token format")
 	}
 	jwtPayload := parts[1]
