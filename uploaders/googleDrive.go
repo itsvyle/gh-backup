@@ -2,9 +2,13 @@ package uploaders
 
 // Following this: https://developers.google.com/identity/gsi/web/guides/devices
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -60,10 +64,47 @@ func (u *UploaderGoogleDrive) Enabled() bool {
 func (u *UploaderGoogleDrive) Connect() error {
 	credentialsFile := "/etc/gh-backup/" + sanitizeName(u.name) + ".json"
 	_, err := os.Stat(credentialsFile)
-	exists := errors.Is(err, fs.ErrNotExist)
-	if err != nil && !exists {
+	exists := !errors.Is(err, fs.ErrNotExist)
+	if err != nil && exists {
 		return fmt.Errorf("credentials file not found: %w", err)
 	}
+
+	if exists {
+		log.WithField("name", u.name).Infof("credentials file exists at %s", credentialsFile)
+	} else {
+		u.authenticate()
+	}
+
+	return nil
+}
+
+func (u *UploaderGoogleDrive) authenticate() error {
+	requestBody := fmt.Sprintf("client_id=%s&scope=%s", url.QueryEscape(u.clientID), url.QueryEscape("email https://www.googleapis.com/auth/drive.file"))
+
+	req, err := http.NewRequest(http.MethodPost, "https://oauth2.googleapis.com/device/code", bytes.NewBufferString(requestBody))
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to create request")
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to send request")
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to read response body")
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Print the response status code and body
+	fmt.Println("Status Code:", resp.StatusCode)
+	fmt.Println("Response Body:", string(body))
 	return nil
 }
 

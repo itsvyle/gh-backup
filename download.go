@@ -63,9 +63,7 @@ func DownloadRepos() ([]Repo, ReposGeneralBackupInfos) {
 	wg.Wait()
 
 	for _, repo := range repos {
-		if repo.Changed {
-			reposUpdated[config.SanitizeRepoName(repo.Name)] = time.Now()
-		}
+		reposUpdated[config.SanitizeRepoName(repo.Name)] = time.Now()
 	}
 
 	log.Info("Finished downloading all repos")
