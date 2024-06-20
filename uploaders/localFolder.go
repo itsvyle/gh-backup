@@ -17,7 +17,7 @@ import (
 type UploaderLocalFolders struct {
 	name       string
 	enabled    bool
-	FolderPath string `yaml:"path"`
+	FolderPath string
 }
 
 func NewUploaderLocalFolders(settings *config.BackupMethod) *UploaderLocalFolders {

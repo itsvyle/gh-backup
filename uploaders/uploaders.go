@@ -1,6 +1,9 @@
 package uploaders
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Uploader interface {
 	Type() string
@@ -14,4 +17,9 @@ type Uploader interface {
 	GetPreviousBackupTimes() (map[string]time.Time, error)
 	// Push the backup to the remote service
 	Push(changedRepos []string, infoFile map[string]time.Time) error
+}
+
+// Sanitize the name to be used as a file name
+func sanitizeName(name string) string {
+	return strings.ReplaceAll(name, " ", "_")
 }

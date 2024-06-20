@@ -20,6 +20,8 @@ func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 		switch method.Type {
 		case "local":
 			backs[i] = uploaders.NewUploaderLocalFolders(&method)
+		case "gdrive":
+			backs[i] = uploaders.NewUploaderGoogleDrive(&method)
 		default:
 			log.WithField("type", method.Type).Fatal("Unknown backup method")
 		}
@@ -28,10 +30,10 @@ func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 	for _, method := range backs {
 		log.Printf("- %s: '%s'; enabled=%t", method.Type(), method.Name(), method.Enabled())
 	}
-	enabledMethods := 0
+	enabledMethodsCount := 0
 	for _, method := range backs {
 		if method.Enabled() {
-			enabledMethods++
+			enabledMethodsCount++
 			err := method.Connect()
 			if err != nil {
 				log.WithField("type", method.Type()).WithField("name", method.Name()).WithError(err).Fatal("failed to connect")
@@ -42,7 +44,7 @@ func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 	var hadError error
 
 	wg := sync.WaitGroup{}
-	wg.Add(enabledMethods)
+	wg.Add(enabledMethodsCount)
 	runningUploaders := make(chan struct{}, config.ConcurrentRepoDownloads)
 
 	for _, method := range backs {
