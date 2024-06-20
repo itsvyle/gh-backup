@@ -3,14 +3,17 @@ package uploaders
 // Following this: https://developers.google.com/identity/gsi/web/guides/devices
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,16 +22,21 @@ import (
 )
 
 type UploaderGoogleDrive struct {
-	name         string
-	enabled      bool
-	clientID     string
-	clientSecret string
+	name            string
+	enabled         bool
+	credentialsFile string
+	clientID        string
+	clientSecret    string
 }
 
 func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive {
+	if settings.Name == "" {
+		log.Fatal("Name not set for Google Drive uploader")
+	}
 	u := &UploaderGoogleDrive{
-		name:    settings.Name,
-		enabled: settings.Enabled,
+		name:            settings.Name,
+		enabled:         settings.Enabled,
+		credentialsFile: "/etc/gh-backup/credential_" + sanitizeName(settings.Name) + ".json",
 	}
 
 	if settings.Parameters == nil {
@@ -63,15 +71,14 @@ func (u *UploaderGoogleDrive) Enabled() bool {
 }
 
 func (u *UploaderGoogleDrive) Connect() error {
-	credentialsFile := "/etc/gh-backup/" + sanitizeName(u.name) + ".json"
-	_, err := os.Stat(credentialsFile)
+	_, err := os.Stat(u.credentialsFile)
 	exists := !errors.Is(err, fs.ErrNotExist)
 	if err != nil && exists {
 		return fmt.Errorf("credentials file not found: %w", err)
 	}
 
 	if exists {
-		log.WithField("name", u.name).Infof("credentials file exists at %s", credentialsFile)
+		log.WithField("name", u.name).Infof("credentials file exists at %s", u.credentialsFile)
 	} else {
 		err := u.authenticate()
 		if err != nil {
@@ -144,9 +151,25 @@ func (u *UploaderGoogleDrive) authenticate() error {
 	}
 	log.WithField("token", idToken).Info("Authenticated successfully")
 
+	// Save the contents to the file
+	tokenBytes, _ := json.Marshal(idToken)
+	err = os.WriteFile(u.credentialsFile, tokenBytes, 0644)
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to save token to file")
+		return fmt.Errorf("failed to save token to file: %w", err)
+	}
+
+	email, err := u.getEmailFromIdToken(idToken.IDToken)
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to get email from token")
+		return fmt.Errorf("failed to get email from token: %w", err)
+	}
+	log.Infof("Authenticated as %s", email)
+
 	return nil
 }
 
+const googleDriveTokenTimeToAnswer = 600 // 10 minutes
 func (u *UploaderGoogleDrive) pollTokenAPI(deviceCodeResponse GoogleDriveDeviceCodeResponse) (idToken GoogleTokenResponse, err error) {
 	requestBody := fmt.Sprintf(
 		"client_id=%s&client_secret=%s&code=%s&grant_type=http://oauth.net/grant_type/device/1.0",
@@ -162,10 +185,11 @@ func (u *UploaderGoogleDrive) pollTokenAPI(deviceCodeResponse GoogleDriveDeviceC
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{}
+	maxExpiration := float64(math.Max(float64(deviceCodeResponse.ExpiresIn), googleDriveTokenTimeToAnswer))
+	totalChecks := int(math.Floor(maxExpiration / float64(deviceCodeResponse.Interval)))
 
-	amountOfChecks := deviceCodeResponse.ExpiresIn / deviceCodeResponse.Interval
-	for i := 0; i < amountOfChecks; i++ {
+	client := &http.Client{}
+	for i := 0; i < totalChecks; i++ {
 		req.Body = io.NopCloser(bytes.NewBufferString(requestBody))
 		time.Sleep(time.Duration(deviceCodeResponse.Interval) * time.Second)
 
@@ -205,6 +229,32 @@ func (u *UploaderGoogleDrive) pollTokenAPI(deviceCodeResponse GoogleDriveDeviceC
 
 func (u *UploaderGoogleDrive) GetPreviousBackupTimes() (res map[string]time.Time, err error) {
 	panic("implement me")
+}
+
+type GoogleIDToken struct {
+	Email string `json:"email"`
+}
+
+func (u *UploaderGoogleDrive) getEmailFromIdToken(idToken string) (email string, err error) {
+	parts := strings.Split(idToken, ".")
+	if len(parts) != 3 {
+		return "", errors.New("invalid token format")
+	}
+	jwtPayload := parts[1]
+
+	decoded, err := base64.RawURLEncoding.DecodeString(jwtPayload)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode token payload: %w", err)
+	}
+	var token GoogleIDToken
+	err = json.Unmarshal(decoded, &token)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal token: %w", err)
+	}
+	if token.Email == "" {
+		return "", errors.New("email not found in token")
+	}
+	return token.Email, nil
 }
 
 func (u *UploaderGoogleDrive) Push(changedRepos []string, infoFile map[string]time.Time) (err error) {
