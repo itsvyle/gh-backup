@@ -90,8 +90,17 @@ type GoogleDriveDeviceCodeResponse struct {
 	Interval        int    `json:"interval"`
 }
 
+type GoogleTokenResponse struct {
+	Error        string `json:"error"`
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+}
+
 func (u *UploaderGoogleDrive) authenticate() error {
-	log.Info("Authenticating with Google Drive, as the credentials file was not found.")
+	log.Infof("%s: Authenticating with Google Drive, as the credentials file was not found.", u.name)
 	requestBody := fmt.Sprintf("client_id=%s&scope=%s", url.QueryEscape(u.clientID), url.QueryEscape("email https://www.googleapis.com/auth/drive.file"))
 
 	req, err := http.NewRequest(http.MethodPost, "https://oauth2.googleapis.com/device/code", bytes.NewBufferString(requestBody))
@@ -129,7 +138,69 @@ func (u *UploaderGoogleDrive) authenticate() error {
 
 	log.Infof("Please visit %s and enter the code: %s", deviceCodeResponse.VerificationURL, deviceCodeResponse.UserCode)
 
+	idToken, err := u.pollTokenAPI(deviceCodeResponse)
+	if err != nil {
+		return err
+	}
+	log.WithField("token", idToken).Info("Authenticated successfully")
+
 	return nil
+}
+
+func (u *UploaderGoogleDrive) pollTokenAPI(deviceCodeResponse GoogleDriveDeviceCodeResponse) (idToken GoogleTokenResponse, err error) {
+	requestBody := fmt.Sprintf(
+		"client_id=%s&client_secret=%s&code=%s&grant_type=http://oauth.net/grant_type/device/1.0",
+		url.QueryEscape(u.clientID),
+		url.QueryEscape(u.clientSecret),
+		url.QueryEscape(deviceCodeResponse.DeviceCode),
+	)
+	req, err := http.NewRequest(http.MethodPost, "https://oauth2.googleapis.com/token", bytes.NewBufferString(requestBody))
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to create request token")
+		err = fmt.Errorf("failed to create request: %w", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{}
+
+	amountOfChecks := deviceCodeResponse.ExpiresIn / deviceCodeResponse.Interval
+	for i := 0; i < amountOfChecks; i++ {
+		req.Body = io.NopCloser(bytes.NewBufferString(requestBody))
+		time.Sleep(time.Duration(deviceCodeResponse.Interval) * time.Second)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.WithField("name", u.name).WithError(err).Error("failed to send request token")
+			err = fmt.Errorf("failed to send request: %w", err)
+			return idToken, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusPreconditionRequired {
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			log.WithField("name", u.name).WithField("status", resp.StatusCode).WithField("body", string(body)).Error("failed to poll for token")
+			return idToken, fmt.Errorf("failed to poll for token: %d", resp.StatusCode)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.WithField("name", u.name).WithError(err).Error("failed to read token response body")
+			return idToken, fmt.Errorf("failed to read token response body: %w", err)
+		}
+
+		err = json.Unmarshal(body, &idToken)
+		if err != nil {
+			log.WithField("name", u.name).WithError(err).Error("failed to unmarshal token response")
+			return GoogleTokenResponse{}, fmt.Errorf("failed to unmarshal token response: %w", err)
+		}
+		return idToken, nil
+
+	}
+	return
 }
 
 func (u *UploaderGoogleDrive) GetPreviousBackupTimes() (res map[string]time.Time, err error) {
