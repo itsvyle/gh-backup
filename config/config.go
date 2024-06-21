@@ -31,12 +31,12 @@ var flagDebug = flag.Bool("debug", Debug, "Enable debug mode")
 func init() {
 	flag.Parse()
 	LoadConfig()
-	ForceRedownload = *flagForce
-	NonInteractive = *flagNonInteractive
-	BackupPrivateRepos = *flagPrivate
-	ConcurrentRepoDownloads = *flagConcurrent
-	DeleteDataAfterUpload = *flagDeleteTempFiles
-	Debug = *flagDebug
+	// ForceRedownload = *flagForce
+	// NonInteractive = *flagNonInteractive
+	// BackupPrivateRepos = *flagPrivate
+	// ConcurrentRepoDownloads = *flagConcurrent
+	// DeleteDataAfterUpload = *flagDeleteTempFiles
+	// Debug = *flagDebug
 
 	// Potential processing of arguments:
 	LocalStoragePath = strings.TrimSuffix(LocalStoragePath, "/")
