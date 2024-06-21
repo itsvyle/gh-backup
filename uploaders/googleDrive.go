@@ -152,7 +152,6 @@ func (u *UploaderGoogleDrive) Connect() error {
 		return fmt.Errorf("failed to create drive service: %w", err)
 	}
 
-	// Now get the folder ID
 	folderReq := u.driveService.Files.List()
 	folderReq.Q("mimeType='application/vnd.google-apps.folder' and name='gh-backup'")
 	folder, err := folderReq.Do()
@@ -466,7 +465,18 @@ func (u *UploaderGoogleDrive) Push(changedRepos []string, infoFile map[string]ti
 		return fmt.Errorf("failed to marshal updated repos: %w", err)
 	}
 
-	// push the file
+	infoFileBytes, err := json.Marshal(infoFile)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated repos: %w", err)
+	}
+	_, err = u.driveService.Files.Create(&drive.File{
+		Name:    "GLOBAL_" + config.BackupInfoFile,
+		Parents: []string{u.parentRepoID},
+	}).Media(bytes.NewReader(infoFileBytes)).Do()
+	if err != nil {
+		log.WithField("name", u.name).WithError(err).Error("failed to create file")
+		return fmt.Errorf("failed to create file: %w", err)
+	}
 
 	return
 }
