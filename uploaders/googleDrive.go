@@ -27,11 +27,13 @@ import (
 )
 
 type UploaderGoogleDrive struct {
-	name            string
-	enabled         bool
-	credentialsFile string
-	driveService    *drive.Service
-	parentRepoID    string
+	name                string
+	enabled             bool
+	credentialsFile     string
+	driveService        *drive.Service
+	projectRootFolderID string
+	currentBackupFolder string
+	previousInfoFileID  string
 
 	clientID     string
 	clientSecret string
@@ -43,10 +45,10 @@ func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive 
 		log.Fatal("Name not set for Google Drive uploader")
 	}
 	u := &UploaderGoogleDrive{
-		name:         settings.Name,
-		enabled:      settings.Enabled,
-		zipRepos:     true,
-		parentRepoID: "ABABAA",
+		name:                settings.Name,
+		enabled:             settings.Enabled,
+		zipRepos:            true,
+		currentBackupFolder: "ABABAA",
 	}
 
 	{
@@ -158,18 +160,19 @@ func (u *UploaderGoogleDrive) Connect() error {
 	if err != nil {
 		return fmt.Errorf("failed to list folders: %w", err)
 	}
-	if len(folder.Files) == 0 {
-		log.WithField("name", u.name).Info("Folder not found, creating")
+	if len(folder.Files) == 0 || folder.Files[0].Trashed {
+		log.WithField("name", u.name).Info("Root gh-backup folder not found, creating")
 		newFolder, err := u.driveService.Files.Create(&drive.File{
 			Name:     "gh-backup",
 			MimeType: "application/vnd.google-apps.folder",
+			Parents:  []string{"root"},
 		}).Do()
 		if err != nil {
 			return fmt.Errorf("failed to create folder: %w", err)
 		}
-		u.parentRepoID = newFolder.Id
+		u.projectRootFolderID = newFolder.Id
 	} else {
-		u.parentRepoID = folder.Files[0].Id
+		u.projectRootFolderID = folder.Files[0].Id
 	}
 
 	return nil
@@ -392,6 +395,7 @@ func (u *UploaderGoogleDrive) GetPreviousBackupTimes() (res map[string]time.Time
 		return nil, nil
 	}
 	fileID := files.Files[0].Id
+	u.previousInfoFileID = fileID
 
 	file, err := u.driveService.Files.Get(fileID).Download()
 	if err != nil {
@@ -438,6 +442,21 @@ func (u *UploaderGoogleDrive) getEmailFromIDToken(tokenData string) (email strin
 }
 
 func (u *UploaderGoogleDrive) Push(changedRepos []string, infoFile map[string]time.Time) (err error) {
+	if len(changedRepos) == 0 {
+		log.WithField("name", u.name).Info("No repos to upload, up to date")
+		return
+	}
+	// create new folder for this backup
+	folderName := "gh-backup-" + time.Now().Format("2006-01-02-15-04-05")
+	newFolder, err := u.driveService.Files.Create(&drive.File{
+		Name:     folderName,
+		Parents:  []string{u.projectRootFolderID},
+		MimeType: "application/vnd.google-apps.folder",
+	}).Do()
+	if err != nil {
+		return fmt.Errorf("failed to create folder: %w", err)
+	}
+	u.currentBackupFolder = newFolder.Id
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(changedRepos))
@@ -469,9 +488,16 @@ func (u *UploaderGoogleDrive) Push(changedRepos []string, infoFile map[string]ti
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated repos: %w", err)
 	}
+	if u.previousInfoFileID != "" {
+		err = u.driveService.Files.Delete(u.previousInfoFileID).Do()
+		if err != nil {
+			log.WithField("name", u.name).WithError(err).Error("failed to delete previous info file")
+			return fmt.Errorf("failed to delete previous info file: %w", err)
+		}
+	}
 	_, err = u.driveService.Files.Create(&drive.File{
 		Name:     "GLOBAL_" + config.BackupInfoFile,
-		Parents:  []string{u.parentRepoID},
+		Parents:  []string{u.projectRootFolderID},
 		MimeType: "application/json",
 	}).Media(bytes.NewReader(infoFileBytes)).Do()
 	if err != nil {
@@ -506,7 +532,7 @@ func (u *UploaderGoogleDrive) pushRepo(repo string) error {
 	// Create a new file on Google Drive
 	f := &drive.File{
 		Name:    config.SanitizeRepoName(repo) + ".zip",
-		Parents: []string{u.parentRepoID},
+		Parents: []string{u.currentBackupFolder},
 	}
 	_, err = u.driveService.Files.Create(f).Media(file).Do()
 	if err != nil {
