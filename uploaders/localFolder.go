@@ -113,7 +113,7 @@ func (u *UploaderLocalFolders) Push(changedRepos []string, infoFile map[string]t
 			}()
 			err = u.pushRepo(r)
 			if err != nil {
-				log.WithField("repo", r).WithError(err).Error("failed to copy repo")
+				log.WithField("name", u.name).WithField("repo", r).WithError(err).Error("failed to copy repo")
 			}
 		}(repo)
 	}

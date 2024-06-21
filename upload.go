@@ -48,6 +48,9 @@ func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 	runningUploaders := make(chan struct{}, config.ConcurrentRepoDownloads)
 
 	for _, method := range backs {
+		if !method.Enabled() {
+			continue
+		}
 		runningUploaders <- struct{}{}
 		go func(method uploaders.Uploader) {
 			defer func() {
