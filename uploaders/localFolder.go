@@ -134,8 +134,8 @@ func (u *UploaderLocalFolders) Push(changedRepos []string, infoFile map[string]t
 }
 
 func (u *UploaderLocalFolders) pushRepo(repo string) error {
-	path := config.LocalStoragePath + "/" + config.SanitizeRepoName(repo)
-	_, err := os.Stat(path)
+	sourcePath := config.LocalStoragePath + "/" + config.SanitizeRepoName(repo)
+	_, err := os.Stat(sourcePath)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to check repo path: %w", repo, err)
 	}
@@ -146,7 +146,7 @@ func (u *UploaderLocalFolders) pushRepo(repo string) error {
 		return fmt.Errorf("'%s' failed to remove old repo: %w", repo, err)
 	}
 
-	err = copy.DirCopy(path, newPath, copy.Content, false)
+	err = copy.DirCopy(sourcePath, newPath, copy.Content, false)
 	if err != nil {
 		return fmt.Errorf("'%s' failed to copy repo: %w", repo, err)
 	}

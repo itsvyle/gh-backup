@@ -30,9 +30,11 @@ type UploaderGoogleDrive struct {
 	name            string
 	enabled         bool
 	credentialsFile string
-	clientID        string
-	clientSecret    string
 	driveService    *drive.Service
+
+	clientID     string
+	clientSecret string
+	zipRepos     bool
 }
 
 func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive {
@@ -40,8 +42,9 @@ func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive 
 		log.Fatal("Name not set for Google Drive uploader")
 	}
 	u := &UploaderGoogleDrive{
-		name:    settings.Name,
-		enabled: settings.Enabled,
+		name:     settings.Name,
+		enabled:  settings.Enabled,
+		zipRepos: true,
 	}
 
 	{
@@ -72,6 +75,10 @@ func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive 
 		u.enabled = false
 	} else {
 		u.clientSecret = settings.Parameters["clientSecret"]
+	}
+	if settings.Parameters["zipRepos"] == "false" {
+		u.zipRepos = false
+		log.WithField("name", settings.Name).Fatal("gdrive uploader does not yet support unzipped repos")
 	}
 
 	return u
@@ -442,5 +449,13 @@ func (u *UploaderGoogleDrive) Push(changedRepos []string, infoFile map[string]ti
 }
 
 func (u *UploaderGoogleDrive) pushRepo(repo string) error {
-	panic("implement me")
+	sourcePath := config.LocalStoragePath + "/" + config.SanitizeRepoName(repo)
+	_, err := os.Stat(sourcePath)
+	if err != nil {
+		return fmt.Errorf("'%s' failed to check repo source path path: %w", repo, err)
+	}
+	if !u.zipRepos {
+		panic("non-zipped repos not supported yet")
+	}
+	panic("not implemented")
 }
