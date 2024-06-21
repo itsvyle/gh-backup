@@ -21,12 +21,15 @@ type BackupMethod struct {
 }
 
 type fileConfig struct {
-	BackupPrivateRepos        bool           `yaml:"backupPrivateRepos"`
-	BackupOtherOwnersRepos    bool           `yaml:"backupOtherOwnersRepos"`
-	ConcurrentRepoDownloads   int            `yaml:"concurrentRepoDownloads"`
-	ConcurrentBackupUploaders int            `yaml:"concurrentBackupUploaders"`
-	LocalStoragePath          string         `yaml:"localStoragePath"`
-	ForceRedownload           bool           `yaml:"forceRedownload"`
+	Debug                     *bool          `yaml:"debug"`
+	NonInteractive            *bool          `yaml:"nonInteractive"`
+	BackupPrivateRepos        *bool          `yaml:"backupPrivateRepos"`
+	BackupOtherOwnersRepos    *bool          `yaml:"backupOtherOwnersRepos"`
+	ConcurrentRepoDownloads   *int           `yaml:"concurrentRepoDownloads"`
+	ConcurrentBackupUploaders *int           `yaml:"concurrentBackupUploaders"`
+	LocalStoragePath          *string        `yaml:"localStoragePath"`
+	ForceRedownload           *bool          `yaml:"forceRedownload"`
+	DeleteDataAfterUpload     *bool          `yaml:"deleteDataAfterUpload"`
 	BackupMethods             []BackupMethod `yaml:"backupMethods"`
 }
 
@@ -54,23 +57,44 @@ func LoadConfig() {
 		log.WithError(err).Fatal("failed to parse config file")
 	}
 
-	// Set the global variables to the values from the config file
-	BackupPrivateRepos = cfg.BackupPrivateRepos
-	BackupOtherOwnersRepos = cfg.BackupOtherOwnersRepos
-	ConcurrentRepoDownloads = cfg.ConcurrentRepoDownloads
-	ConcurrentBackupUploaders = cfg.ConcurrentBackupUploaders
-	LocalStoragePath = cfg.LocalStoragePath
-	ForceRedownload = cfg.ForceRedownload
+	if cfg.Debug != nil {
+		Debug = *cfg.Debug
+	}
+	if cfg.NonInteractive != nil {
+		NonInteractive = *cfg.NonInteractive
+	}
+	if cfg.BackupPrivateRepos != nil {
+		BackupPrivateRepos = *cfg.BackupPrivateRepos
+	}
+	if cfg.BackupOtherOwnersRepos != nil {
+		BackupOtherOwnersRepos = *cfg.BackupOtherOwnersRepos
+	}
+	if cfg.ConcurrentRepoDownloads != nil {
+		ConcurrentRepoDownloads = *cfg.ConcurrentRepoDownloads
+	}
+	if cfg.ConcurrentBackupUploaders != nil {
+		ConcurrentBackupUploaders = *cfg.ConcurrentBackupUploaders
+	}
+	if cfg.LocalStoragePath != nil {
+		LocalStoragePath = *cfg.LocalStoragePath
+	}
+	if cfg.ForceRedownload != nil {
+		ForceRedownload = *cfg.ForceRedownload
+	}
+	if cfg.DeleteDataAfterUpload != nil {
+		DeleteDataAfterUpload = *cfg.DeleteDataAfterUpload
+	}
+
 	BackupMethods = cfg.BackupMethods
 }
 
 func createDefaultConfig(path string) {
 	cfg := fileConfig{
-		BackupPrivateRepos:      BackupPrivateRepos,
-		BackupOtherOwnersRepos:  BackupOtherOwnersRepos,
-		ConcurrentRepoDownloads: ConcurrentRepoDownloads,
-		LocalStoragePath:        LocalStoragePath,
-		ForceRedownload:         ForceRedownload,
+		Debug:                 &Debug,
+		BackupPrivateRepos:    &BackupPrivateRepos,
+		ForceRedownload:       &ForceRedownload,
+		DeleteDataAfterUpload: &DeleteDataAfterUpload,
+		BackupMethods:         []BackupMethod{},
 	}
 	data, err := yaml.Marshal(cfg)
 	if err != nil {

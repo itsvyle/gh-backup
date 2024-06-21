@@ -18,16 +18,25 @@ var (
 	ForceRedownload           = false
 	DeleteDataAfterUpload     = true
 	BackupMethods             []BackupMethod
+	Debug                     = false
 )
 
-var force = flag.Bool("force", false, "Force redownload of all repos")
-var nonInteractive = flag.Bool("nonInteractive", false, "Run in non-interactive mode")
+var flagForce = flag.Bool("no-cache", BackupPrivateRepos, "Force redownload of all repos")
+var flagNonInteractive = flag.Bool("non-interactive", NonInteractive, "Run in non-interactive mode")
+var flagPrivate = flag.Bool("private", BackupPrivateRepos, "Backup private repos")
+var flagConcurrent = flag.Int("concurrent", ConcurrentRepoDownloads, "Number of concurrent downloads")
+var flagDeleteTempFiles = flag.Bool("delete-temp-files", DeleteDataAfterUpload, "Delete backup temporary files after upload")
+var flagDebug = flag.Bool("debug", Debug, "Enable debug mode")
 
 func init() {
 	flag.Parse()
 	LoadConfig()
-	ForceRedownload = *force
-	NonInteractive = *nonInteractive
+	ForceRedownload = *flagForce
+	NonInteractive = *flagNonInteractive
+	BackupPrivateRepos = *flagPrivate
+	ConcurrentRepoDownloads = *flagConcurrent
+	DeleteDataAfterUpload = *flagDeleteTempFiles
+	Debug = *flagDebug
 
 	// Potential processing of arguments:
 	LocalStoragePath = strings.TrimSuffix(LocalStoragePath, "/")
