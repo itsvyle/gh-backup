@@ -84,7 +84,7 @@ func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 
 			changedReposNames := []string{}
 			for _, repo := range *repos {
-				if repo.UpdatedAt.After(previousBackupTimes[repo.Name]) {
+				if repo.UpdatedAt.After(previousBackupTimes[config.SanitizeRepoName(repo.Name)]) {
 					changedReposNames = append(changedReposNames, repo.Name)
 				}
 			}
@@ -95,7 +95,7 @@ func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 				hadError = err
 				return
 			}
-			log.WithField("type", method.Type()).WithField("name", method.Name()).Info("uploaded")
+			log.WithField("type", method.Type()).WithField("name", method.Name()).Infof("uploaded %d repos", len(changedReposNames))
 		}(method)
 	}
 

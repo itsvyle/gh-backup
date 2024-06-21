@@ -470,8 +470,9 @@ func (u *UploaderGoogleDrive) Push(changedRepos []string, infoFile map[string]ti
 		return fmt.Errorf("failed to marshal updated repos: %w", err)
 	}
 	_, err = u.driveService.Files.Create(&drive.File{
-		Name:    "GLOBAL_" + config.BackupInfoFile,
-		Parents: []string{u.parentRepoID},
+		Name:     "GLOBAL_" + config.BackupInfoFile,
+		Parents:  []string{u.parentRepoID},
+		MimeType: "application/json",
 	}).Media(bytes.NewReader(infoFileBytes)).Do()
 	if err != nil {
 		log.WithField("name", u.name).WithError(err).Error("failed to create file")
@@ -512,6 +513,7 @@ func (u *UploaderGoogleDrive) pushRepo(repo string) error {
 		log.WithField("name", u.name).WithField("repo", repo).WithError(err).Error("failed to create file")
 		return fmt.Errorf("'%s' failed to create file: %w", repo, err)
 	}
+	log.WithField("name", u.name).Infof("uploaded %s", repo)
 
 	return nil
 }
