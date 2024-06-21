@@ -6,7 +6,7 @@ The point of this program isn't to just backup the repositories contents, like y
 ## Install
 For now, this program has only be tested on Linux.
 
-You can download a binary from the [releases page](https://github.com/itsvyle/gh-backup/releases), and place that binary in your /usr/local/bin directory.
+You can download a binary from the [releases page](https://github.com/itsvyle/gh-backup/releases), and place that binary in your /usr/local/bin directory. Note that for now, only a x86_64 binary is provided.
 
 You can also build from source:
 ```bash
