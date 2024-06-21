@@ -3,6 +3,7 @@ package uploaders
 // Following this: https://developers.google.com/identity/gsi/web/guides/devices
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -20,7 +21,9 @@ import (
 
 	"github.com/itsvyle/gh-backup/config"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/option"
 )
 
 type UploaderGoogleDrive struct {
@@ -29,7 +32,7 @@ type UploaderGoogleDrive struct {
 	credentialsFile string
 	clientID        string
 	clientSecret    string
-	driveService    drive.Service
+	driveService    *drive.Service
 }
 
 func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive {
@@ -129,6 +132,15 @@ func (u *UploaderGoogleDrive) Connect() error {
 				return err
 			}
 		}
+	}
+
+	// Create a new drive service
+	ctx := context.Background()
+	u.driveService, err = drive.NewService(ctx, option.WithTokenSource(oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken: idToken.AccessToken,
+	})))
+	if err != nil {
+		return fmt.Errorf("failed to create drive service: %w", err)
 	}
 
 	return nil
@@ -341,7 +353,33 @@ func (u *UploaderGoogleDrive) saveTokenDataToFile(tokenData GoogleTokenResponse)
 }
 
 func (u *UploaderGoogleDrive) GetPreviousBackupTimes() (res map[string]time.Time, err error) {
-	panic("implement me")
+	filesReq := u.driveService.Files.List()
+	filesReq.Q("mimeType='application/json' and name='GLOBAL_" + config.BackupInfoFile + "'")
+	files, err := filesReq.Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+	if len(files.Files) == 0 {
+		return nil, nil
+	}
+	fileID := files.Files[0].Id
+
+	file, err := u.driveService.Files.Get(fileID).Download()
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file: %w", err)
+	}
+	defer file.Body.Close()
+
+	fileBytes, err := io.ReadAll(file.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	err = json.Unmarshal(fileBytes, &res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal file: %w", err)
+	}
+	return
 }
 
 type GoogleIDToken struct {
