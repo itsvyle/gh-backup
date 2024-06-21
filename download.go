@@ -90,6 +90,18 @@ func FilterRepos(initialRepos []Repo) []Repo {
 		if !config.BackupOtherOwnersRepos && repo.Name != username+"/"+repo.NameNoOwner {
 			continue
 		}
+		if config.ExludeRepos != nil {
+			exclude := false
+			for _, excludeRepo := range config.ExludeRepos {
+				if excludeRepo == repo.Name {
+					exclude = true
+					break
+				}
+			}
+			if exclude {
+				continue
+			}
+		}
 		repos = append(repos, repo)
 	}
 	return repos

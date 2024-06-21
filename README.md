@@ -35,6 +35,7 @@ Configuration can either be done in a yaml file at the path `~/.ghbackup.yaml`, 
 | Force download | Force download of repositories, even if it hasn't changed since the last download | forceRedownload | --no-cache | false |
 | Delete temp files | Delete temporary files created during the backup process after the repos have been uploaded | deleteDataAfterUpload | --delete-temp-files | true |
 | Non Interactive | Runs the app without any interaction requirement; this means that it will crash itself if the setup isn't correct; useful for automated runs | nonInteractive | --non-interactive | false |
+| Exlude repositories | A list of repositories to exclude from the backup | excludeRepos | --exclude | - |
 
 You can then have a list of backup methods, which can be configured in the configuration file. Each backup method has a name, a type, and parameters specific to that type; see below for supported upload methods.
 

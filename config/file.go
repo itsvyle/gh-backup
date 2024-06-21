@@ -30,6 +30,7 @@ type fileConfig struct {
 	LocalStoragePath          *string        `yaml:"localStoragePath"`
 	ForceRedownload           *bool          `yaml:"forceRedownload"`
 	DeleteDataAfterUpload     *bool          `yaml:"deleteDataAfterUpload"`
+	ExludeRepos               []string       `yaml:"excludeRepos"`
 	BackupMethods             []BackupMethod `yaml:"backupMethods"`
 }
 
@@ -85,6 +86,7 @@ func LoadConfig() {
 		DeleteDataAfterUpload = *cfg.DeleteDataAfterUpload
 	}
 
+	ExludeRepos = cfg.ExludeRepos
 	BackupMethods = cfg.BackupMethods
 }
 

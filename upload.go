@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
+	"os"
 	"sync"
 
 	"github.com/itsvyle/gh-backup/config"
@@ -38,6 +41,20 @@ func UploadRepos(repos *[]Repo, backupInfoFile ReposGeneralBackupInfos) {
 			if err != nil {
 				log.WithField("type", method.Type()).WithField("name", method.Name()).WithError(err).Fatal("failed to connect")
 			}
+		}
+	}
+
+	// Create zips folder
+	zipsPath := config.LocalStoragePath + "/zips/"
+	os.RemoveAll(zipsPath)
+	_, err := os.Stat(zipsPath)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			log.WithError(err).Fatal("failed to check zips path")
+		}
+		err = os.MkdirAll(zipsPath, os.ModePerm)
+		if err != nil {
+			log.WithError(err).Fatal("failed to create zips path")
 		}
 	}
 
