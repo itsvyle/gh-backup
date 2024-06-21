@@ -31,6 +31,7 @@ type UploaderGoogleDrive struct {
 	enabled         bool
 	credentialsFile string
 	driveService    *drive.Service
+	parentRepoID    string
 
 	clientID     string
 	clientSecret string
@@ -42,9 +43,10 @@ func NewUploaderGoogleDrive(settings *config.BackupMethod) *UploaderGoogleDrive 
 		log.Fatal("Name not set for Google Drive uploader")
 	}
 	u := &UploaderGoogleDrive{
-		name:     settings.Name,
-		enabled:  settings.Enabled,
-		zipRepos: true,
+		name:         settings.Name,
+		enabled:      settings.Enabled,
+		zipRepos:     true,
+		parentRepoID: "ABABAA",
 	}
 
 	{
@@ -148,6 +150,27 @@ func (u *UploaderGoogleDrive) Connect() error {
 	})))
 	if err != nil {
 		return fmt.Errorf("failed to create drive service: %w", err)
+	}
+
+	// Now get the folder ID
+	folderReq := u.driveService.Files.List()
+	folderReq.Q("mimeType='application/vnd.google-apps.folder' and name='gh-backup'")
+	folder, err := folderReq.Do()
+	if err != nil {
+		return fmt.Errorf("failed to list folders: %w", err)
+	}
+	if len(folder.Files) == 0 {
+		log.WithField("name", u.name).Info("Folder not found, creating")
+		newFolder, err := u.driveService.Files.Create(&drive.File{
+			Name:     "gh-backup",
+			MimeType: "application/vnd.google-apps.folder",
+		}).Do()
+		if err != nil {
+			return fmt.Errorf("failed to create folder: %w", err)
+		}
+		u.parentRepoID = newFolder.Id
+	} else {
+		u.parentRepoID = folder.Files[0].Id
 	}
 
 	return nil
@@ -472,7 +495,7 @@ func (u *UploaderGoogleDrive) pushRepo(repo string) error {
 	// Create a new file on Google Drive
 	f := &drive.File{
 		Name:    config.SanitizeRepoName(repo) + ".zip",
-		Parents: []string{"root"},
+		Parents: []string{u.parentRepoID},
 	}
 	_, err = u.driveService.Files.Create(f).Media(file).Do()
 	if err != nil {
