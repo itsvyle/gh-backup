@@ -21,7 +21,7 @@ var (
 	Debug                     = false
 )
 
-var flagForce = flag.Bool("no-cache", BackupPrivateRepos, "Force redownload of all repos")
+var flagForce = flag.Bool("no-cache", ForceRedownload, "Force redownload of all repos")
 var flagNonInteractive = flag.Bool("non-interactive", NonInteractive, "Run in non-interactive mode")
 var flagPrivate = flag.Bool("private", BackupPrivateRepos, "Backup private repos")
 var flagConcurrent = flag.Int("concurrent", ConcurrentRepoDownloads, "Number of concurrent downloads")
