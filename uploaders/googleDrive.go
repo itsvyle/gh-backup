@@ -457,5 +457,28 @@ func (u *UploaderGoogleDrive) pushRepo(repo string) error {
 	if !u.zipRepos {
 		panic("non-zipped repos not supported yet")
 	}
-	panic("not implemented")
+	zipPath, err := GetZipPath(repo)
+	if err != nil {
+		return fmt.Errorf("'%s' failed to get zip path: %w", repo, err)
+	}
+
+	// Create a new file on Google Drive
+	file, err := os.Open(zipPath)
+	if err != nil {
+		return fmt.Errorf("'%s' failed to open zip file: %w", repo, err)
+	}
+	defer file.Close()
+
+	// Create a new file on Google Drive
+	f := &drive.File{
+		Name:    config.SanitizeRepoName(repo) + ".zip",
+		Parents: []string{"root"},
+	}
+	_, err = u.driveService.Files.Create(f).Media(file).Do()
+	if err != nil {
+		log.WithField("name", u.name).WithField("repo", repo).WithError(err).Error("failed to create file")
+		return fmt.Errorf("'%s' failed to create file: %w", repo, err)
+	}
+
+	return nil
 }

@@ -19,19 +19,22 @@ func PostUploadDeleteData() {
 	}
 	// TODO: make it concurrent
 	for _, file := range files {
-		if file.IsDir() {
-			if file.Name() == "zips" {
-				err = os.RemoveAll(filepath.Join(config.LocalStoragePath, file.Name()))
-				if err != nil {
-					log.WithField("directory", file.Name()).WithError(err).Fatal("failed removing directory")
-				}
-			}
-			p := filepath.Join(config.LocalStoragePath, file.Name())
-			err = deleteData(p)
-			if err != nil {
-				log.WithField("directory", p).WithError(err).Fatal("failed removing directory")
-			}
+		if !file.IsDir() {
+			continue
 		}
+		if file.Name() == "zips" {
+			err = os.RemoveAll(filepath.Join(config.LocalStoragePath, file.Name()))
+			if err != nil {
+				log.WithField("directory", file.Name()).WithError(err).Fatal("failed removing directory")
+			}
+			continue
+		}
+		p := filepath.Join(config.LocalStoragePath, file.Name())
+		err = deleteData(p)
+		if err != nil {
+			log.WithField("directory", p).WithError(err).Fatal("failed removing directory")
+		}
+
 	}
 }
 

@@ -11,6 +11,7 @@ const BackupInfoFile = "gh_backup_info.json"
 var (
 	NonInteractive            = false
 	BackupPrivateRepos        = true
+	ExludeRepos               = []string{}
 	BackupOtherOwnersRepos    = false
 	ConcurrentRepoDownloads   = 5
 	ConcurrentBackupUploaders = 2
