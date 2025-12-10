@@ -9,7 +9,12 @@ pub fn restore(mirror_path: &std::path::Path, destination: &std::path::Path) -> 
         bail!("Destination path {} already exists.", destination.display());
     }
 
-    todo!("Implement repository restoration logic here.");
+    let _status = std::process::Command::new("git")
+        .arg("clone")
+        .arg(mirror_path)
+        .arg(destination)
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to execute git command: {}", e))?;
 
     Ok(())
 }

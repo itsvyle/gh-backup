@@ -25,7 +25,7 @@ pub fn get_absolute_backup_dir(backup_dir: &PathBuf) -> AnyhowResult<PathBuf> {
         backup_dir.clone()
     } else {
         if !backup_dir.exists() {
-            std::fs::create_dir_all(&backup_dir).with_context(|| {
+            std::fs::create_dir_all(backup_dir).with_context(|| {
                 format!(
                     "Failed to create backup directory at {}",
                     backup_dir.display()
@@ -34,7 +34,7 @@ pub fn get_absolute_backup_dir(backup_dir: &PathBuf) -> AnyhowResult<PathBuf> {
         }
         std::env::current_dir()
             .with_context(|| "Failed to get current working directory")?
-            .join(&backup_dir)
+            .join(backup_dir)
             .canonicalize()
             .with_context(|| {
                 format!(

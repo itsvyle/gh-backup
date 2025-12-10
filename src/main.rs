@@ -190,6 +190,7 @@ async fn backup_repo(
         }
         cmd.arg(repo_url).arg(backup_dir);
     } else {
+        cmd.current_dir(backup_dir);
         cmd.arg("fetch");
         if include_all_branches {
             cmd.arg("--all").arg("--prune");

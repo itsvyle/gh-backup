@@ -62,6 +62,7 @@ impl Cache {
         }
     }
 
+    #[allow(dead_code)]
     pub fn save(&self, backup_dir: &Path) -> AnyhowResult<()> {
         let cache_file = backup_dir.join("cache.json");
         let data = serde_json::to_string_pretty(&self.repos).with_context(|| {
