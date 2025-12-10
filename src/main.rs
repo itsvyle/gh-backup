@@ -100,7 +100,22 @@ async fn main() -> AnyhowResult<()> {
 
     let tasks_stream = stream::iter(repos.iter().map(|repo| {
         repos_indexes.insert(repo.name.clone(), repo);
-        let include_all_branches = cli_include_all_branches;
+        let mut include_all_branches = cli_include_all_branches;
+        if let Some(owner) = &repo.owner {
+            if owner.login != cli_username {
+                include_all_branches = false;
+                println!(
+                    "Not backuping all branches for repository: {} owned by {}",
+                    repo.name.blue(),
+                    owner.login.yellow()
+                )
+            }
+        } else {
+            println!(
+                "Scheduling backup for repository: {} with no owner info",
+                repo.name.green()
+            );
+        }
         let backup_dir = absolute_backup_dir.join(format!(
             "{}.git",
             repo.full_name
@@ -128,10 +143,21 @@ async fn main() -> AnyhowResult<()> {
         }
     }));
 
-    let _results: Vec<Result<_, _>> = tasks_stream
+    let results: Vec<Result<_, _>> = tasks_stream
         .buffer_unordered(cli.task_limit)
         .collect()
         .await;
+
+    println!("--------------------------------------");
+    println!("Backup summary:");
+
+    let (success_count, failure_count) =
+        results.iter().fold((0, 0), |(s, f), result| match result {
+            Ok(_) => (s + 1, f),
+            Err(_) => (s, f + 1),
+        });
+    println!("Successful backups: {}", success_count.to_string().green());
+    println!("Failed backups: {}", failure_count.to_string().red());
 
     /* for result in results {
         match result {
@@ -187,6 +213,10 @@ async fn backup_repo(
             cmd.arg("--mirror");
         } else {
             cmd.arg("--single-branch");
+            cmd.arg("--branch");
+            cmd.arg(repo.default_branch.as_deref().unwrap_or("main"));
+            cmd.arg("--depth").arg("10");
+            cmd.arg("--bare");
         }
         cmd.arg(repo_url).arg(backup_dir);
     } else {
